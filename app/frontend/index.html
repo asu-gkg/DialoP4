@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DialoP4 - 网络研究智能代理系统</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background-color: #f8f9fa;
+        }
+        .container-fluid {
+            max-width: 1400px;
+        }
+        .chat-container {
+            height: calc(100vh - 210px);
+            display: flex;
+            flex-direction: column;
+        }
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            background-color: #fff;
+            border-radius: 0.5rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        }
+        .message {
+            margin-bottom: 1rem;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            max-width: 75%;
+        }
+        .user-message {
+            background-color: #f0f7ff;
+            margin-left: auto;
+            border: 1px solid #d0e3ff;
+        }
+        .bot-message {
+            background-color: #f8f9fa;
+            margin-right: auto;
+            border: 1px solid #e9ecef;
+        }
+        .message-input {
+            background-color: #fff;
+            border-radius: 0.5rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        .nav-pills .nav-link.active {
+            background-color: #0d6efd;
+        }
+        .action-panel {
+            background-color: #fff;
+            border-radius: 0.5rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            padding: 1.5rem;
+            height: 100%;
+        }
+        .code-container {
+            height: calc(100vh - 210px);
+            overflow-y: auto;
+            padding: 1rem;
+            background-color: #fff;
+            border-radius: 0.5rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        }
+        .paper-analysis {
+            margin-top: 1rem;
+            background-color: #fff;
+            border-radius: 0.5rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            padding: 1.5rem;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 1rem;
+            border-radius: 0.25rem;
+            overflow-x: auto;
+        }
+        .loading {
+            display: inline-block;
+            width: 1.5rem;
+            height: 1.5rem;
+            border: 0.25rem solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            animation: spinner 0.75s linear infinite;
+        }
+        @keyframes spinner {
+            to {transform: rotate(360deg);}
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="bi bi-diagram-3"></i> DialoP4
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#">主页</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#aboutModal">关于</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-md-8">
+                <ul class="nav nav-pills mb-3" id="mainTab">
+                    <li class="nav-item">
+                        <a class="nav-link active" id="chat-tab" data-bs-toggle="pill" href="#chat">对话</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="code-tab" data-bs-toggle="pill" href="#code">代码</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="evaluation-tab" data-bs-toggle="pill" href="#evaluation">评估</a>
+                    </li>
+                </ul>
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="chat">
+                        <div class="chat-container">
+                            <div class="messages-container" id="messagesContainer">
+                                <div class="message bot-message">
+                                    <p>您好！我是DialoP4，一个专门针对网络研究论文的智能助手。</p>
+                                    <p>您可以：</p>
+                                    <ul>
+                                        <li>上传论文PDF进行分析</li>
+                                        <li>生成P4、NS3或Python实现代码</li>
+                                        <li>评估和优化生成的代码</li>
+                                        <li>询问有关论文内容的问题</li>
+                                    </ul>
+                                    <p>请先上传一篇网络研究论文，或者询问我任何问题！</p>
+                                </div>
+                            </div>
+                            <div class="message-input">
+                                <div class="input-group">
+                                    <input type="text" id="messageInput" class="form-control" placeholder="输入消息...">
+                                    <button class="btn btn-primary" id="sendButton">
+                                        <i class="bi bi-send"></i> 发送
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="code">
+                        <div class="code-container">
+                            <div class="code-selection mb-3">
+                                <label class="form-label">代码类型</label>
+                                <div class="btn-group" role="group">
+                                    <input type="radio" class="btn-check" name="codeType" id="pythonCode" value="python" checked>
+                                    <label class="btn btn-outline-primary" for="pythonCode">Python</label>
+                                    
+                                    <input type="radio" class="btn-check" name="codeType" id="ns3Code" value="ns3">
+                                    <label class="btn btn-outline-primary" for="ns3Code">NS3</label>
+                                    
+                                    <input type="radio" class="btn-check" name="codeType" id="p4Code" value="p4">
+                                    <label class="btn btn-outline-primary" for="p4Code">P4</label>
+                                </div>
+                                <button class="btn btn-primary ms-3" id="generateCodeBtn">
+                                    <i class="bi bi-code-square"></i> 生成代码
+                                </button>
+                            </div>
+                            <div id="codeOutput">
+                                <div class="alert alert-info">
+                                    请先上传并分析论文，然后选择代码类型生成实现代码。
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="evaluation">
+                        <div class="code-container">
+                            <div class="mb-3">
+                                <button class="btn btn-primary" id="evaluateCodeBtn">
+                                    <i class="bi bi-check-circle"></i> 评估代码
+                                </button>
+                                <button class="btn btn-outline-primary ms-2" id="refineCodeBtn">
+                                    <i class="bi bi-lightning"></i> 优化代码
+                                </button>
+                            </div>
+                            <div id="evaluationOutput">
+                                <div class="alert alert-info">
+                                    请先生成代码，然后进行评估和优化。
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="action-panel">
+                    <h5 class="mb-3">上传论文</h5>
+                    <div class="mb-3">
+                        <input class="form-control" type="file" id="paperUpload" accept=".pdf">
+                    </div>
+                    <button class="btn btn-primary" id="uploadButton">
+                        <i class="bi bi-upload"></i> 上传并分析
+                    </button>
+                    <div id="uploadStatus" class="mt-2"></div>
+                    
+                    <hr>
+                    
+                    <div id="paperAnalysisSection" style="display:none;">
+                        <h5 class="mb-3">论文分析</h5>
+                        <div id="paperAnalysis"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 关于模态框 -->
+    <div class="modal fade" id="aboutModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">关于DialoP4</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>DialoP4是一个基于大型语言模型的智能代理系统，专为网络研究设计。系统能够解析NSDI/SIGCOMM等顶级会议的网络论文，并自动生成对应的NS3模拟代码、P4代码、Python实现、评估报告和交互式可视化界面。</p>
+                    
+                    <h6>核心特性</h6>
+                    <ul>
+                        <li>多Agent协同：各个Agent负责不同职能，相互协作完成复杂任务</li>
+                        <li>迭代式思考：通过多轮自我优化避免浅层思考和"思维捷径"</li>
+                        <li>检索增强生成：融合网络领域专业知识库提升输出质量</li>
+                        <li>人机协作循环：支持人类专家反馈和指导</li>
+                    </ul>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/lib/highlight.min.js"></script>
+    <script>
+    // 初始化变量
+    let conversationId = generateUUID();
+    let paperId = null;
+    let codeId = null;
+    const apiBaseUrl = '/api';
+
+    // 生成UUID
+    function generateUUID() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            const r = Math.random() * 16 | 0;
+            const v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+
+    // DOM 元素
+    const messageInput = document.getElementById('messageInput');
+    const sendButton = document.getElementById('sendButton');
+    const messagesContainer = document.getElementById('messagesContainer');
+    const paperUpload = document.getElementById('paperUpload');
+    const uploadButton = document.getElementById('uploadButton');
+    const uploadStatus = document.getElementById('uploadStatus');
+    const paperAnalysis = document.getElementById('paperAnalysis');
+    const paperAnalysisSection = document.getElementById('paperAnalysisSection');
+    const codeOutput = document.getElementById('codeOutput');
+    const evaluationOutput = document.getElementById('evaluationOutput');
+    const generateCodeBtn = document.getElementById('generateCodeBtn');
+    const evaluateCodeBtn = document.getElementById('evaluateCodeBtn');
+    const refineCodeBtn = document.getElementById('refineCodeBtn');
+
+    // 在页面加载时初始化事件监听器
+    document.addEventListener('DOMContentLoaded', () => {
+        // 发送消息
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // 上传论文
+        uploadButton.addEventListener('click', uploadPaper);
+
+        // 生成代码
+        generateCodeBtn.addEventListener('click', generateCode);
+
+        // 评估和优化代码
+        evaluateCodeBtn.addEventListener('click', evaluateCode);
+        refineCodeBtn.addEventListener('click', refineCode);
+    });
+
+    // 发送消息函数
+    async function sendMessage() {
+        const message = messageInput.value.trim();
+        if (!message) return;
+
+        // 添加用户消息到对话界面
+        addMessage(message, 'user');
+        messageInput.value = '';
+
+        // 显示加载指示器
+        addLoadingMessage();
+
+        try {
+            const response = await fetch(`${apiBaseUrl}/chat`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: message,
+                    conversation_id: conversationId
+                }),
+            });
+
+            const data = await response.json();
+            
+            // 移除加载指示器
+            removeLoadingMessage();
+            
+            // 添加机器人回复
+            addMessage(data.response, 'bot');
+        } catch (error) {
+            console.error('Error:', error);
+            removeLoadingMessage();
+            addMessage('抱歉，发生了错误，请稍后再试。', 'bot');
+        }
+    }
+
+    // 上传论文函数
+    async function uploadPaper() {
+        const fileInput = paperUpload;
+        if (!fileInput.files || fileInput.files.length === 0) {
+            uploadStatus.innerHTML = '<div class="alert alert-warning">请先选择PDF文件</div>';
+            return;
+        }
+
+        const file = fileInput.files[0];
+        if (!file.name.endsWith('.pdf')) {
+            uploadStatus.innerHTML = '<div class="alert alert-danger">只支持PDF文件</div>';
+            return;
+        }
+
+        // 显示上传状态
+        uploadStatus.innerHTML = '<div class="d-flex align-items-center"><div class="loading me-2"></div> 正在上传和分析论文...</div>';
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('conversation_id', conversationId);
+
+        try {
+            const response = await fetch(`${apiBaseUrl}/upload-paper`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            const data = await response.json();
+            
+            if (response.ok) {
+                uploadStatus.innerHTML = '<div class="alert alert-success">论文上传和分析成功</div>';
+                
+                // 显示论文分析结果
+                displayPaperAnalysis(data.analysis);
+                
+                // 添加机器人消息到对话
+                addMessage(`我已经成功分析了论文"${data.analysis.title}"。您可以询问有关论文的任何问题，或者转到代码标签页生成实现。`, 'bot');
+                
+                // 保存论文ID
+                paperId = data.analysis.id;
+            } else {
+                uploadStatus.innerHTML = `<div class="alert alert-danger">${data.error || '上传失败'}</div>`;
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            uploadStatus.innerHTML = '<div class="alert alert-danger">上传过程中发生错误</div>';
+        }
+    }
+
+    // 显示论文分析结果
+    function displayPaperAnalysis(analysis) {
+        paperAnalysisSection.style.display = 'block';
+        
+        let analysisHtml = `
+            <h6>${analysis.title}</h6>
+            <small class="text-muted">作者: ${analysis.authors.join(', ')}</small>
+            <div class="mt-2">
+                <strong>摘要:</strong>
+                <p>${analysis.summary}</p>
+            </div>
+        `;
+        
+        if (analysis.analysis && analysis.analysis.concepts) {
+            const concepts = analysis.analysis.concepts;
+            analysisHtml += `
+                <div class="mt-2">
+                    <strong>主要概念:</strong>
+                    <p>${concepts.key_concepts}</p>
+                </div>
+                <div class="mt-2">
+                    <strong>创新点:</strong>
+                    <p>${concepts.innovations}</p>
+                </div>
+            `;
+        }
+        
+        paperAnalysis.innerHTML = analysisHtml;
+    }
+
+    // 生成代码函数
+    async function generateCode() {
+        if (!paperId) {
+            codeOutput.innerHTML = '<div class="alert alert-warning">请先上传并分析论文</div>';
+            return;
+        }
+        
+        // 获取选择的代码类型
+        const codeType = document.querySelector('input[name="codeType"]:checked').value;
+        
+        // 显示加载状态
+        codeOutput.innerHTML = '<div class="d-flex align-items-center"><div class="loading me-2"></div> 正在生成代码...</div>';
+        
+        try {
+            const response = await fetch(`${apiBaseUrl}/generate-code`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    paper_id: paperId,
+                    code_type: codeType,
+                    conversation_id: conversationId
+                }),
+            });
+
+            const data = await response.json();
+            
+            if (response.ok) {
+                // 保存代码ID
+                codeId = data.code.id;
+                
+                // 显示代码
+                displayCode(data.code, codeType);
+                
+                // 添加消息到对话
+                addMessage(`我已经生成了${codeType.toUpperCase()}实现代码。您可以在代码标签页查看，也可以进行评估和优化。`, 'bot');
+            } else {
+                codeOutput.innerHTML = `<div class="alert alert-danger">${data.error || '代码生成失败'}</div>`;
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            codeOutput.innerHTML = '<div class="alert alert-danger">代码生成过程中发生错误</div>';
+        }
+    }
+
+    // 显示代码
+    function displayCode(code, codeType) {
+        let codeHtml = `
+            <div class="mb-3">
+                <h5>${code.title || '实现代码'}</h5>
+                <small class="text-muted">类型: ${codeType.toUpperCase()}</small>
+            </div>
+        `;
+        
+        if (code.description) {
+            codeHtml += `
+                <div class="mb-3">
+                    <strong>描述:</strong>
+                    <p>${code.description}</p>
+                </div>
+            `;
+        }
+        
+        codeHtml += `<pre><code class="language-${getLanguageClass(codeType)}">${code.code}</code></pre>`;
+        
+        codeOutput.innerHTML = codeHtml;
+        
+        // 高亮代码
+        document.querySelectorAll('pre code').forEach((block) => {
+            hljs.highlightElement(block);
+        });
+    }
+
+    // 获取代码高亮语言类
+    function getLanguageClass(codeType) {
+        switch(codeType) {
+            case 'python': return 'python';
+            case 'ns3': return 'cpp';
+            case 'p4': return 'p4';
+            default: return 'plaintext';
+        }
+    }
+
+    // 评估代码函数
+    async function evaluateCode() {
+        if (!paperId || !codeId) {
+            evaluationOutput.innerHTML = '<div class="alert alert-warning">请先生成代码</div>';
+            return;
+        }
+        
+        // 显示加载状态
+        evaluationOutput.innerHTML = '<div class="d-flex align-items-center"><div class="loading me-2"></div> 正在评估代码...</div>';
+        
+        try {
+            const response = await fetch(`${apiBaseUrl}/evaluate-implementation`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    paper_id: paperId,
+                    code_id: codeId,
+                    conversation_id: conversationId
+                }),
+            });
+
+            const data = await response.json();
+            
+            if (response.ok) {
+                displayEvaluation(data.evaluation);
+                
+                // 添加消息到对话
+                addMessage('我已完成代码评估，请在评估标签页查看详细结果。', 'bot');
+            } else {
+                evaluationOutput.innerHTML = `<div class="alert alert-danger">${data.error || '评估失败'}</div>`;
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            evaluationOutput.innerHTML = '<div class="alert alert-danger">评估过程中发生错误</div>';
+        }
+    }
+
+    // 显示评估结果
+    function displayEvaluation(evaluation) {
+        const scores = evaluation.scores || {};
+        
+        let evaluationHtml = `
+            <div class="mb-3">
+                <h5>代码评估结果</h5>
+            </div>
+            <div class="mb-3">
+                <strong>总体评分:</strong> ${scores.overall || 'N/A'}/10
+            </div>
+        `;
+        
+        if (scores.correctness) {
+            evaluationHtml += `<div class="mb-2"><strong>正确性:</strong> ${scores.correctness}/10</div>`;
+        }
+        
+        if (scores.performance) {
+            evaluationHtml += `<div class="mb-2"><strong>性能:</strong> ${scores.performance}/10</div>`;
+        }
+        
+        if (scores.readability) {
+            evaluationHtml += `<div class="mb-2"><strong>可读性:</strong> ${scores.readability}/10</div>`;
+        }
+        
+        if (evaluation.summary) {
+            evaluationHtml += `
+                <div class="mt-3">
+                    <strong>总结:</strong>
+                    <p>${evaluation.summary}</p>
+                </div>
+            `;
+        }
+        
+        if (evaluation.strengths && evaluation.strengths.length > 0) {
+            evaluationHtml += `
+                <div class="mt-3">
+                    <strong>优势:</strong>
+                    <ul>
+                        ${evaluation.strengths.map(s => `<li>${s}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+        
+        if (evaluation.weaknesses && evaluation.weaknesses.length > 0) {
+            evaluationHtml += `
+                <div class="mt-3">
+                    <strong>改进点:</strong>
+                    <ul>
+                        ${evaluation.weaknesses.map(w => `<li>${w}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+        
+        evaluationOutput.innerHTML = evaluationHtml;
+    }
+
+    // 优化代码函数
+    async function refineCode() {
+        if (!paperId || !codeId) {
+            evaluationOutput.innerHTML = '<div class="alert alert-warning">请先生成并评估代码</div>';
+            return;
+        }
+        
+        // 显示加载状态
+        evaluationOutput.innerHTML += '<div class="mt-3 d-flex align-items-center"><div class="loading me-2"></div> 正在优化代码...</div>';
+        
+        try {
+            const response = await fetch(`${apiBaseUrl}/refine-implementation`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    paper_id: paperId,
+                    code_id: codeId,
+                    feedback: '',  // 可以添加用户反馈
+                    conversation_id: conversationId
+                }),
+            });
+
+            const data = await response.json();
+            
+            if (response.ok) {
+                // 更新代码ID
+                codeId = data.refined_code.id;
+                
+                // 显示优化后的代码
+                const codeType = document.querySelector('input[name="codeType"]:checked').value;
+                displayCode(data.refined_code, codeType);
+                
+                // 添加消息到对话
+                addMessage('我已经优化了代码实现，您可以在代码标签页查看优化后的代码。', 'bot');
+                
+                // 切换到代码标签页
+                document.getElementById('code-tab').click();
+            } else {
+                evaluationOutput.innerHTML += `<div class="alert alert-danger mt-3">${data.error || '代码优化失败'}</div>`;
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            evaluationOutput.innerHTML += '<div class="alert alert-danger mt-3">代码优化过程中发生错误</div>';
+        }
+    }
+
+    // 添加消息到对话界面
+    function addMessage(content, sender) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${sender}-message`;
+        
+        // 处理markdown格式
+        if (sender === 'bot') {
+            messageDiv.innerHTML = marked.parse(content);
+        } else {
+            messageDiv.textContent = content;
+        }
+        
+        messagesContainer.appendChild(messageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    // 添加加载指示器
+    function addLoadingMessage() {
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'message bot-message loading-message';
+        loadingDiv.innerHTML = '<div class="loading"></div>';
+        messagesContainer.appendChild(loadingDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    // 移除加载指示器
+    function removeLoadingMessage() {
+        const loadingMessage = document.querySelector('.loading-message');
+        if (loadingMessage) {
+            loadingMessage.remove();
+        }
+    }
+    </script>
+</body>
+</html> 
