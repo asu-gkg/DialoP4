@@ -1,0 +1,100 @@
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background-color: #f8f9fa;
+}
+
+.container-fluid {
+  max-width: 1400px;
+}
+
+.chat-container {
+  height: calc(100vh - 210px);
+  display: flex;
+  flex-direction: column;
+}
+
+.messages-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  background-color: #fff;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.message {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  max-width: 75%;
+}
+
+.user-message {
+  background-color: #f0f7ff;
+  margin-left: auto;
+  border: 1px solid #d0e3ff;
+}
+
+.bot-message {
+  background-color: #f8f9fa;
+  margin-right: auto;
+  border: 1px solid #e9ecef;
+}
+
+.message-input {
+  background-color: #fff;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.nav-pills .nav-link.active {
+  background-color: #0d6efd;
+}
+
+.action-panel {
+  background-color: #fff;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  padding: 1.5rem;
+  height: 100%;
+}
+
+.code-container {
+  height: calc(100vh - 210px);
+  overflow-y: auto;
+  padding: 1rem;
+  background-color: #fff;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.paper-analysis {
+  margin-top: 1rem;
+  background-color: #fff;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  padding: 1.5rem;
+}
+
+pre {
+  background-color: #f8f9fa;
+  padding: 1rem;
+  border-radius: 0.25rem;
+  overflow-x: auto;
+}
+
+.loading {
+  display: inline-block;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 0.25rem solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spinner 0.75s linear infinite;
+}
+
+@keyframes spinner {
+  to {transform: rotate(360deg);}
+}

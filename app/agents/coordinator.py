@@ -7,6 +7,76 @@ from .rag_engine import RAGEngine
 from .code_generator import CodeGenerator
 from .evaluator import Evaluator
 from .refiner import Refiner
+import dspy
+from .base_agent import BaseAgent
+
+class MessageClassifier(dspy.Signature):
+    """判断用户消息是否需要专业知识支持"""
+    message = dspy.InputField(desc="用户发送的消息")
+    requires_knowledge = dspy.OutputField(desc="是否需要专业知识来回答这个问题，回答'是'或'否'")
+    reasoning = dspy.OutputField(desc="分析该消息为什么需要或不需要专业知识的推理过程")
+
+class MessageClassifierAgent(BaseAgent):
+    """专门用于判断消息类型的Agent"""
+    
+    def __init__(self, config):
+        super().__init__(config, name="message_classifier")
+        self.message_classifier = dspy.Predict(MessageClassifier)
+    
+    def _load_prompts(self):
+        """加载Agent特定的提示模板"""
+        self.prompts = {
+            "classify_message": """
+分析用户消息，判断是否需要专业的技术知识来回答。
+
+如果消息涉及以下内容，应该认为需要专业知识：
+1. 技术术语和概念
+2. 论文内容分析或总结的请求
+3. 关于网络编程、协议或架构的具体问题
+4. 代码实现相关问题
+5. 具体技术工具(如NS3、P4等)的使用问题
+
+如果消息是以下类型，应该认为不需要专业知识：
+1. 一般问候和闲聊
+2. 系统使用方面的简单问题
+3. 非技术性的反馈或评论
+4. 个人偏好相关的问题
+
+请基于用户的意图而非仅关键词进行判断。
+            """
+        }
+    
+    def process(self, message, conversation_id=''):
+        """
+        分析消息是否需要专业知识支持
+        
+        Args:
+            message (str): 用户消息
+            conversation_id (str): 会话ID
+            
+        Returns:
+            dict: 包含分类结果和推理过程
+        """
+        # 使用DSPy的Predict来判断
+        prediction = self.message_classifier(message=message)
+        
+        # 解析结果
+        requires_knowledge = prediction.requires_knowledge.lower() in ["是", "yes", "true"]
+        
+        result = {
+            "message": message,
+            "requires_knowledge": requires_knowledge,
+            "reasoning": prediction.reasoning
+        }
+        
+        # 保存结果
+        result_path = self.save_result(
+            result=result,
+            result_type="message_classification",
+            conversation_id=conversation_id
+        )
+        
+        return result
 
 class AgentCoordinator:
     """协调所有Agent工作的协调器"""
@@ -30,6 +100,9 @@ class AgentCoordinator:
         # 创建会话存储路径
         self.conversation_store = Path(config['storage'].get('document_store_path'))
         self.conversation_store.mkdir(parents=True, exist_ok=True)
+        
+        # 添加消息分类器
+        self.message_classifier = MessageClassifierAgent(config)
     
     def process_message(self, message, conversation_id=''):
         """
@@ -46,26 +119,43 @@ class AgentCoordinator:
         if not conversation_id:
             conversation_id = str(uuid.uuid4())
             
-        # 检查消息是否为查询
-        if self._is_question(message):
-            # 尝试从RAG获取回答
-            try:
-                # 获取会话上下文
-                context = self._get_conversation_context(conversation_id)
-                
-                # 使用RAG生成回答
+        try:
+            # 获取会话上下文
+            context = self._get_conversation_context(conversation_id)
+            
+            # 使用消息分类器判断消息类型
+            classification = self.message_classifier.process(
+                message=message,
+                conversation_id=conversation_id
+            )
+            
+            # 根据分类结果决定处理方式
+            if classification["requires_knowledge"]:
+                # 需要专业知识，使用RAG引擎处理
                 rag_result = self.rag_engine.process(
                     query=message,
                     paper_context=context,
                     conversation_id=conversation_id
                 )
                 
-                return rag_result.get('integrated_knowledge', '抱歉，我无法回答这个问题。')
-            except Exception as e:
-                return f"处理查询时出错: {str(e)}"
-        else:
-            # 对于非问题的消息，返回一个通用回复
-            return "我已收到您的消息。如需分析论文或生成代码，请使用相应的功能。"
+                knowledge = rag_result.get('integrated_knowledge')
+                if knowledge and knowledge != '没有足够的知识来回答此查询':
+                    return knowledge
+            
+            # 不需要专业知识或RAG无法提供有效回答，使用基础对话能力
+            # 这里可以调用通用的对话模型或使用DSPy的ReAct，类似BaseAgent测试中的实现
+            # 简化版本
+            conversational_response = self._generate_chat_response(
+                message=message,
+                context=context,
+                conversation_id=conversation_id
+            )
+            
+            return conversational_response
+                
+        except Exception as e:
+            print(f"处理消息时出错: {str(e)}")
+            return f"处理您的消息时遇到问题，请稍后再试。"
     
     def analyze_paper(self, paper_content, conversation_id=''):
         """
@@ -288,20 +378,6 @@ class AgentCoordinator:
         except Exception as e:
             return {'error': f"优化代码时出错: {str(e)}"}
     
-    def _is_question(self, message):
-        """判断消息是否为问题"""
-        # 简单判断：以问号结尾或者包含疑问词
-        question_words = ['什么', '如何', '为什么', '怎么', '哪个', '哪些', '谁', '何时', '何地', '是否']
-        
-        if message.strip().endswith('?') or message.strip().endswith('？'):
-            return True
-        
-        for word in question_words:
-            if word in message:
-                return True
-        
-        return False
-    
     def _save_conversation_context(self, conversation_id, context):
         """保存会话上下文"""
         context_path = self.conversation_store / conversation_id / 'context.json'
@@ -400,4 +476,45 @@ class AgentCoordinator:
         if code_type in evaluations:
             return evaluations[code_type].get('evaluation_id', '')
         
-        return '' 
+        return ''
+    
+    def _generate_chat_response(self, message, context, conversation_id):
+        """生成聊天回复，使用DSPy框架"""
+        # 定义一个简单的聊天Signature
+        class ChatResponse(dspy.Signature):
+            context = dspy.InputField(desc="对话上下文和系统信息")
+            message = dspy.InputField(desc="用户最新消息")
+            response = dspy.OutputField(desc="助手的友好回复")
+        
+        # 使用DSPy进行预测
+        chat_predictor = dspy.Predict(ChatResponse)
+        
+        # 构建上下文信息
+        context_str = "你是一个专注于网络技术和论文分析的助手。"
+        if context:
+            # 添加重要上下文信息，如已分析的论文等
+            if 'paper_analysis' in context:
+                paper_title = context['paper_analysis'].get('title', '')
+                if paper_title:
+                    context_str += f"用户之前分析了一篇题为《{paper_title}》的论文。"
+        
+        # 获取响应
+        prediction = chat_predictor(context=context_str, message=message)
+        
+        # 更新对话历史
+        if 'conversation_history' not in context:
+            context['conversation_history'] = []
+        
+        context['conversation_history'].append({
+            "role": "user",
+            "content": message
+        })
+        
+        context['conversation_history'].append({
+            "role": "assistant", 
+            "content": prediction.response
+        })
+        
+        self._save_conversation_context(conversation_id, context)
+        
+        return prediction.response 

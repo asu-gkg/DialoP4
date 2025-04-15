@@ -14,7 +14,7 @@ from app.utils.pdf_processor import PDFProcessor
 from app.utils.config import load_config
 
 # 配置Flask应用
-app = Flask(__name__, static_folder='../frontend')
+app = Flask(__name__, static_folder='../../dialop4-react/build')
 CORS(app)  # 允许跨域请求
 
 # 加载配置
@@ -26,10 +26,14 @@ coordinator = AgentCoordinator(config)
 # 初始化PDF处理器
 pdf_processor = PDFProcessor(config)
 
-@app.route('/')
-def serve_frontend():
-    """提供前端静态文件"""
-    return send_from_directory(app.static_folder, 'index.html')
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_frontend(path):
+    """提供React前端静态文件"""
+    if path != "" and os.path.exists(app.static_folder + '/' + path):
+        return send_from_directory(app.static_folder, path)
+    else:
+        return send_from_directory(app.static_folder, 'index.html')
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
